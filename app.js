@@ -13,7 +13,7 @@ const data = [
 ];
 
 // Dimensions
-const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+const margin = { top: 20, right: 20, bottom: 30, left: 200 };
 const width = 960 - margin.left - margin.right;
 const height = 600 - margin.top - margin.bottom;
 
@@ -21,7 +21,7 @@ const height = 600 - margin.top - margin.bottom;
 const svg = d3.select("#chart").append("svg")
     .attr("width", width + margin.left + margin.right)
     .attr("height", height + margin.top + margin.bottom)
-  .append("g")
+    .append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
 // X and Y scales
@@ -34,10 +34,19 @@ const y = d3.scaleBand()
     .range([0, height])
     .padding(0.1);
 
+// Add X axis
+svg.append("g")
+    .attr("transform", `translate(0,${height})`)
+    .call(d3.axisBottom(x));
+
+// Add Y axis
+svg.append("g")
+    .call(d3.axisLeft(y));
+
 // Create the initial bars with zero width
 const bars = svg.selectAll(".bar")
     .data(data)
-  .enter().append("rect")
+    .enter().append("rect")
     .attr("class", "bar")
     .attr("x", 0)
     .attr("y", d => y(d.metric))
@@ -47,7 +56,7 @@ const bars = svg.selectAll(".bar")
 // Add the labels
 const labels = svg.selectAll(".bar-label")
     .data(data)
-  .enter().append("text")
+    .enter().append("text")
     .attr("class", "bar-label")
     .attr("x", 0)
     .attr("y", d => y(d.metric) + y.bandwidth() / 2)
@@ -55,21 +64,37 @@ const labels = svg.selectAll(".bar-label")
     .text(d => d.value)
     .style("opacity", 0);
 
+// Function to check if an element is in viewport
+function isInViewport(element) {
+    const rect = element.getBoundingClientRect();
+    return (
+        rect.top >= 0 &&
+        rect.left >= 0 &&
+        rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+        rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    );
+}
+
+// Function to update bars
+function updateBars() {
+    bars.each(function(d, i) {
+        if (isInViewport(this)) {
+            d3.select(this)
+                .transition()
+                .duration(1000)
+                .attr("width", x(d.value));
+            
+            labels.filter((_, j) => j === i)
+                .transition()
+                .duration(1000)
+                .attr("x", x(d.value) - 5)
+                .style("opacity", 1);
+        }
+    });
+}
+
 // Scroll event listener to update bars dynamically
-window.addEventListener('scroll', () => {
-    const scrollPosition = window.scrollY + window.innerHeight;
-    const chartPosition = document.getElementById('chart').offsetTop;
+window.addEventListener('scroll', updateBars);
 
-    if (scrollPosition > chartPosition) {
-        // Update bars with animation
-        bars.transition()
-            .duration(1000)
-            .attr("width", d => x(d.value));
-
-        // Update labels with animation
-        labels.transition()
-            .duration(1000)
-            .attr("x", d => x(d.value) + 5)
-            .style("opacity", 1);
-    }
-});
+// Initial call to updateBars
+updateBars();
